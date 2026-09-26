@@ -11,6 +11,9 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtWebEngineWidgets import QWebEngineView
 from reader.database import Database
+from reader.settings import ReaderSettings
+from reader.style import apply_reader_style
+from ui.settings_panel import SettingsPanel
 
 class ReaderPage(QWidget):
     def __init__(self, book, parent=None):
@@ -19,6 +22,8 @@ class ReaderPage(QWidget):
         self.current_book = book
         self.current_chapter = 0
         self.current_position = 0
+
+        self.settings = ReaderSettings()
 
         self.database = Database()
 
@@ -45,6 +50,25 @@ class ReaderPage(QWidget):
     def setup_ui(self):
         main_layout = QVBoxLayout(self)
 
+        #-------------------------
+        # Settings panel
+        #-------------------------
+        self.settings_panel = SettingsPanel(
+            self.settings
+        )
+
+        self.settings_panel.setWindowTitle(
+            "Reader Settings"
+        )
+
+        self.settings_panel.setMinimumWidth(300)
+
+        self.settings_panel.settings_changed.connect(
+            self.refresh_chapter
+        )
+
+        self.settings_panel.hide()
+
         # -------------------------
         # Top toolbar
         # -------------------------
@@ -57,13 +81,16 @@ class ReaderPage(QWidget):
         self.title_label = QLabel(self.current_book.title)
         self.title_label.setAlignment(Qt.AlignCenter)
 
-        menu_button = QPushButton("☰")
+        settings_button = QPushButton("⚙")
+        settings_button.clicked.connect(
+            self.toggle_settings
+        )
 
         toolbar.addWidget(back_button)
         toolbar.addStretch()
         toolbar.addWidget(self.title_label)
         toolbar.addStretch()
-        toolbar.addWidget(menu_button)
+        toolbar.addWidget(settings_button)
 
         main_layout.addLayout(toolbar)
 
@@ -149,7 +176,12 @@ class ReaderPage(QWidget):
 
         chapter = self.current_book.chapters[index]
 
-        self.web_view.setHtml(chapter.content)
+        styled_content = apply_reader_style(
+            chapter.content,
+            self.settings,
+        )
+
+        self.web_view.setHtml(styled_content)
 
         self.contents.setCurrentRow(index)
 
@@ -200,3 +232,13 @@ class ReaderPage(QWidget):
 
         if hasattr(window, "show_library"):
             window.show_library()
+
+    def refresh_chapter(self):
+        self.load_chapter(
+            self.current_chapter
+        )
+
+    def toggle_settings(self):
+        self.settings_panel.setVisible(
+            not self.settings_panel.isVisible()
+        )
