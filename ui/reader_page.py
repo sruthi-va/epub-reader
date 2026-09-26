@@ -16,6 +16,7 @@ from reader.style import apply_reader_style
 from ui.settings_panel import SettingsPanel
 from PySide6.QtGui import QShortcut, QKeySequence
 from ui.bookmarks_panel import BookmarksPanel
+from ui.search_panel import SearchPanel
 
 class ReaderPage(QWidget):
     def __init__(self, book, parent=None):
@@ -57,6 +58,17 @@ class ReaderPage(QWidget):
 
         self.bookmark_shortcut.activated.connect(
             self.add_bookmark
+        )
+
+        self.search_panel = None
+
+        self.search_shortcut = QShortcut(
+            QKeySequence("Ctrl+F"),
+            self,
+        )
+
+        self.search_shortcut.activated.connect(
+            self.show_search
         )
 
         
@@ -104,9 +116,15 @@ class ReaderPage(QWidget):
             self.toggle_settings
         )
 
+        search_button = QPushButton("🔍")
+        search_button.clicked.connect(
+            self.show_search
+        )
+
         toolbar.addWidget(back_button)
         toolbar.addWidget(title_label)
         toolbar.addStretch()
+        toolbar.addWidget(search_button)
         toolbar.addWidget(bookmarks_button)
         toolbar.addWidget(settings_button)
 
@@ -407,3 +425,31 @@ class ReaderPage(QWidget):
             bookmark_id
         )
 
+    def show_search(self):
+        if self.search_panel is not None:
+            self.search_panel.close()
+
+        self.search_panel = SearchPanel(
+            self.current_book.chapters
+        )
+
+        self.search_panel.setWindowTitle(
+            "Search"
+        )
+
+        self.search_panel.setMinimumSize(
+            450,
+            600,
+        )
+
+        self.search_panel.result_selected.connect(
+            self.go_to_search_result
+        )
+
+        self.search_panel.show()
+
+    def go_to_search_result(self, chapter):
+        self.load_chapter(chapter)
+
+        if self.search_panel is not None:
+            self.search_panel.close()
