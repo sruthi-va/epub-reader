@@ -8,6 +8,7 @@ from PySide6.QtWidgets import (
     QListWidget,
     QListWidgetItem,
     QSplitter,
+    QFrame,
 )
 from PySide6.QtWebEngineWidgets import QWebEngineView
 from reader.database import Database
@@ -99,36 +100,42 @@ class ReaderPage(QWidget):
         # Top toolbar
         # -------------------------
 
-        toolbar = QHBoxLayout()
+        # Top toolbar
+        toolbar_frame = QFrame()
+        toolbar_frame.setObjectName("readerToolbar")
+
+        toolbar = QHBoxLayout(toolbar_frame)
+        toolbar.setContentsMargins(12, 8, 12, 8)
+        toolbar.setSpacing(8)
 
         back_button = QPushButton("←")
+        back_button.setObjectName("backButton")
+        back_button.setToolTip("Back to library")
         back_button.clicked.connect(self.go_back)
 
         title_label = QLabel(self.current_book.title)
+        title_label.setObjectName("readerTitle")
+
+        toolbar.addWidget(back_button)
+        toolbar.addWidget(title_label)
+        toolbar.addStretch()
 
         bookmarks_button = QPushButton("🔖")
+        bookmarks_button.setToolTip("Bookmarks")
         bookmarks_button.clicked.connect(
             self.show_bookmarks
         )
 
         settings_button = QPushButton("⚙")
+        settings_button.setToolTip("Reader settings")
         settings_button.clicked.connect(
             self.toggle_settings
         )
 
-        search_button = QPushButton("🔍")
-        search_button.clicked.connect(
-            self.show_search
-        )
-
-        toolbar.addWidget(back_button)
-        toolbar.addWidget(title_label)
-        toolbar.addStretch()
-        toolbar.addWidget(search_button)
         toolbar.addWidget(bookmarks_button)
         toolbar.addWidget(settings_button)
 
-        main_layout.addLayout(toolbar)
+        main_layout.addWidget(toolbar_frame)
 
         # -------------------------
         # Main content
@@ -138,6 +145,7 @@ class ReaderPage(QWidget):
 
         # Table of contents
         self.contents = QListWidget()
+        self.contents.setObjectName("contentsList")
         self.contents.setMinimumWidth(200)
         self.contents.itemClicked.connect(self.chapter_selected)
 
@@ -160,12 +168,18 @@ class ReaderPage(QWidget):
         self.previous_button = QPushButton(
             "← Previous Chapter"
         )
+        self.previous_button.setObjectName(
+            "chapterNavigation"
+        )
         self.previous_button.clicked.connect(
             self.previous_chapter
         )
 
         self.next_button = QPushButton(
             "Next Chapter →"
+        )
+        self.next_button.setObjectName(
+            "chapterNavigation"
         )
         self.next_button.clicked.connect(
             self.next_chapter

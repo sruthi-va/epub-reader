@@ -3,21 +3,13 @@ import sys
 from PySide6.QtWidgets import QApplication
 
 from app.window import MainWindow
+from ui.theme import APP_STYLESHEET
 
 
 def main():
     app = QApplication(sys.argv)
 
-    app.setStyleSheet("""
-        QWidget {
-            font-family: Arial;
-            font-size: 14px;
-        }
-
-        QPushButton {
-            padding: 10px;
-        }
-    """)
+    app.setStyleSheet(APP_STYLESHEET)
 
     window = MainWindow()
     window.show()

@@ -26,6 +26,7 @@ class SettingsPanel(QWidget):
         layout = QVBoxLayout(self)
 
         title = QLabel("READER SETTINGS")
+        title.setObjectName("panelTitle")
         layout.addWidget(title)
 
         # -------------------------
@@ -172,6 +173,8 @@ class SettingsPanel(QWidget):
             dark.setChecked(True)
 
         layout.addStretch()
+
+        self.setObjectName("settingsPanel")
 
     def change_font(self, font):
         self.settings.font_family = font

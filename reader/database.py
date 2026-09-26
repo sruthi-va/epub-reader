@@ -50,6 +50,14 @@ class Database:
             )
         """)
 
+        try:
+            cursor.execute("""
+                ALTER TABLE books
+                ADD COLUMN last_opened TEXT
+            """)
+        except sqlite3.OperationalError:
+            pass
+
         self.connection.commit()
 
     def add_book(
@@ -63,14 +71,15 @@ class Database:
 
         cursor.execute("""
             INSERT OR IGNORE INTO books
-            (title, author, path, cover, date_added)
-            VALUES (?, ?, ?, ?, ?)
+            (title, author, path, cover, date_added, last_opened)
+            VALUES (?, ?, ?, ?, ?, ?)
         """, (
             title,
             author,
             path,
             cover,
             datetime.now().isoformat(),
+            None,
         ))
 
         self.connection.commit()
@@ -194,6 +203,73 @@ class Database:
             DELETE FROM bookmarks
             WHERE id = ?
         """, (bookmark_id,))
+
+        self.connection.commit()
+
+    def get_books(self, sort_by="recent"):
+        cursor = self.connection.cursor()
+
+        if sort_by == "title":
+            order = "title COLLATE NOCASE ASC"
+
+        elif sort_by == "author":
+            order = "author COLLATE NOCASE ASC"
+
+        elif sort_by == "opened":
+            order = "last_opened DESC"
+
+        else:
+            order = "date_added DESC"
+
+        cursor.execute(f"""
+            SELECT
+                id,
+                title,
+                author,
+                path,
+                cover,
+                date_added,
+                last_opened
+            FROM books
+            ORDER BY {order}
+        """)
+
+        results = cursor.fetchall()
+
+        return [
+            {
+                "id": row[0],
+                "title": row[1],
+                "author": row[2],
+                "path": row[3],
+                "cover": row[4],
+                "date_added": row[5],
+                "last_opened": row[6],
+            }
+            for row in results
+        ]
+
+    def delete_book(self, book_id):
+        cursor = self.connection.cursor()
+
+        cursor.execute("""
+            DELETE FROM books
+            WHERE id = ?
+        """, (book_id,))
+
+        self.connection.commit()
+
+    def mark_book_opened(self, book_id):
+        cursor = self.connection.cursor()
+
+        cursor.execute("""
+            UPDATE books
+            SET last_opened = ?
+            WHERE id = ?
+        """, (
+            datetime.now().isoformat(),
+            book_id,
+        ))
 
         self.connection.commit()
 

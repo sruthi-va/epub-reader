@@ -8,8 +8,9 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
 
-        self.setWindowTitle("EPUB Reader")
+        self.setWindowTitle("EPUB READER // 01")
         self.resize(1200, 800)
+        self.setMinimumSize(900, 600)
 
         self.show_library()
 

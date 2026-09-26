@@ -1,96 +1,224 @@
 from PySide6.QtWidgets import (
-    QLabel,
-    QPushButton,
+    QWidget,
     QVBoxLayout,
     QHBoxLayout,
-    QWidget,
-    QGridLayout,
+    QLabel,
+    QPushButton,
+    QComboBox,
     QScrollArea,
+    QGridLayout,
+    QFileDialog,
+    QMessageBox,
+    QFrame,
 )
 
-from library.sample_books import SAMPLE_BOOKS
-from ui.book_card import BookCard
-from PySide6.QtCore import Qt
 from epub.parser import EPUBParser
+from reader.database import Database
+from ui.book_card import BookCard
+
 
 class LibraryPage(QWidget):
-
     def __init__(self):
         super().__init__()
 
+        self.database = Database()
+        self.current_sort = "recent"
+
         self.setup_ui()
+        self.load_library()
 
     def setup_ui(self):
-        main_layout = QVBoxLayout()
+        layout = QVBoxLayout(self)
+
+        # Page header
+        header = QVBoxLayout()
+        header.setSpacing(2)
+
+        title = QLabel("MY LIBRARY")
+        title.setObjectName("pageTitle")
+
+        subtitle = QLabel("YOUR EPUB COLLECTION")
+        subtitle.setObjectName("pageSubtitle")
+
+        header.addWidget(title)
+        header.addWidget(subtitle)
+
+        layout.addLayout(header)
 
         # Toolbar
         toolbar = QHBoxLayout()
 
-        title = QLabel("MY LIBRARY")
+        toolbar.addStretch()
 
-        add_button = QPushButton("+ Add Book")
+        # Sort dropdown
+        sort_label = QLabel("Sort by:")
 
-        add_button.clicked.connect(
-            self.add_book_clicked
+        self.sort_combo = QComboBox()
+
+        self.sort_combo.addItem(
+            "Recently Opened",
+            "opened",
         )
 
-        toolbar.addWidget(title)
-        toolbar.addStretch()
+        self.sort_combo.addItem(
+            "Recently Added",
+            "recent",
+        )
+
+        self.sort_combo.addItem(
+            "Title",
+            "title",
+        )
+
+        self.sort_combo.addItem(
+            "Author",
+            "author",
+        )
+
+        self.sort_combo.currentIndexChanged.connect(
+            self.change_sort
+        )
+
+        toolbar.addWidget(sort_label)
+        toolbar.addWidget(self.sort_combo)
+
+        # Add book button
+        add_button = QPushButton("+ Add Book")
+        add_button.setObjectName("addBookButton")
+        add_button.clicked.connect(
+            self.add_book
+        )
+
         toolbar.addWidget(add_button)
 
-        # Section title
-        recently_added = QLabel("Recently Added")
+        layout.addLayout(toolbar)
 
-        # Book grid
-        book_grid = QGridLayout()
+        divider = QFrame()
+        divider.setFrameShape(
+            QFrame.Shape.HLine
+        )
+        divider.setObjectName("pageDivider")
 
-        for index, book in enumerate(SAMPLE_BOOKS):
+        layout.addWidget(divider)
+
+        layout.setContentsMargins(24, 20, 24, 20)
+        layout.setSpacing(16)
+
+        # Scroll area
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+
+        scroll_content = QWidget()
+
+        self.book_grid = QGridLayout(
+            scroll_content
+        )
+
+        self.book_grid.setSpacing(20)
+
+        scroll_area.setWidget(
+            scroll_content
+        )
+
+        layout.addWidget(scroll_area)
+
+        status = QLabel("EPUB READER // LOCAL LIBRARY")
+        status.setObjectName("statusLabel")
+
+        layout.addWidget(status)
+
+    def load_library(self):
+        books = self.database.get_books(
+            sort_by=self.current_sort
+        )
+
+        # Remove existing cards
+        while self.book_grid.count():
+            item = self.book_grid.takeAt(0)
+
+            widget = item.widget()
+
+            if widget is not None:
+                widget.deleteLater()
+
+        # Add cards
+        for index, book in enumerate(books):
             card = BookCard(book)
 
-            card.clicked.connect(self.open_book)
+            card.clicked.connect(
+                self.open_book
+            )
+
+            card.remove_clicked.connect(
+                self.remove_book
+            )
 
             row = index // 3
             column = index % 3
 
-            book_grid.addWidget(
+            self.book_grid.addWidget(
                 card,
                 row,
                 column,
             )
 
-        book_container = QWidget()
-        book_container.setLayout(book_grid)
-
-        # Scroll area
-        scroll_area = QScrollArea()
-        scroll_area.setWidgetResizable(True)
-        scroll_area.setWidget(book_container)
-
-        main_layout.addLayout(toolbar)
-        main_layout.addWidget(recently_added)
-        main_layout.addWidget(scroll_area)
-
-        self.setLayout(main_layout)
-
-    def show_empty_state(self):
-        empty_label = QLabel(
-            "Your library is empty.\n\n"
-            "Add an EPUB to start reading."
+    def add_book(self):
+        file_path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Select EPUB",
+            "",
+            "EPUB files (*.epub)",
         )
 
-        empty_label.setAlignment(
-            Qt.AlignmentFlag.AlignCenter
-        )
+        if not file_path:
+            return
 
-    def add_book_clicked(self):
-        print("Add Book clicked!")
+        try:
+            parser = EPUBParser(file_path)
+            book = parser.parse()
+
+            self.database.add_book(
+                title=book.title,
+                author=book.author,
+                path=book.path,
+                cover=book.cover,
+            )
+
+            self.load_library()
+
+        except Exception as error:
+            QMessageBox.critical(
+                self,
+                "Import Error",
+                f"Could not import EPUB:\n\n{error}",
+            )
 
     def open_book(self, book):
         window = self.window()
 
-        epub_path = r"C:\Users\sruth\Downloads\Monstrilio _ A Novel -- Gerardo Sámano Córdova -- Lightning Source Inc_ (Tier 1), New York, 2023 -- Zando -- isbn13 9781638930365 -- d1f9be176ea6d5e22e95510a0a3884fa -- Anna’s Archive.epub"
+        epub_path = book["path"]
+
+        self.database.mark_book_opened(
+            book["id"]
+        )
 
         parser = EPUBParser(epub_path)
         real_book = parser.parse()
 
         window.show_reader(real_book)
+
+    def remove_book(self, book):
+        self.database.delete_book(
+            book["id"]
+        )
+
+        self.load_library()
+
+    def change_sort(self, index):
+        sort_value = self.sort_combo.itemData(
+            index
+        )
+
+        self.current_sort = sort_value
+
+        self.load_library()
