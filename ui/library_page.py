@@ -11,6 +11,7 @@ from PySide6.QtWidgets import (
 from library.sample_books import SAMPLE_BOOKS
 from ui.book_card import BookCard
 from PySide6.QtCore import Qt
+from epub.parser import EPUBParser
 
 class LibraryPage(QWidget):
 
@@ -44,8 +45,9 @@ class LibraryPage(QWidget):
         book_grid = QGridLayout()
 
         for index, book in enumerate(SAMPLE_BOOKS):
-
             card = BookCard(book)
+
+            card.clicked.connect(self.open_book)
 
             row = index // 3
             column = index % 3
@@ -82,3 +84,13 @@ class LibraryPage(QWidget):
 
     def add_book_clicked(self):
         print("Add Book clicked!")
+
+    def open_book(self, book):
+        window = self.window()
+
+        epub_path = r"C:\Users\sruth\Downloads\Monstrilio _ A Novel -- Gerardo Sámano Córdova -- Lightning Source Inc_ (Tier 1), New York, 2023 -- Zando -- isbn13 9781638930365 -- d1f9be176ea6d5e22e95510a0a3884fa -- Anna’s Archive.epub"
+
+        parser = EPUBParser(epub_path)
+        real_book = parser.parse()
+
+        window.show_reader(real_book)

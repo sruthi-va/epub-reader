@@ -1,5 +1,5 @@
 from PySide6.QtCore import Qt
-
+from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
     QFrame,
     QLabel,
@@ -8,6 +8,7 @@ from PySide6.QtWidgets import (
 
 
 class BookCard(QFrame):
+    clicked = Signal(object)
 
     def __init__(self, book):
         super().__init__()
@@ -51,3 +52,9 @@ class BookCard(QFrame):
         """)
 
         self.setLayout(layout)
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.LeftButton:
+            self.clicked.emit(self.book)
+
+        super().mousePressEvent(event)
