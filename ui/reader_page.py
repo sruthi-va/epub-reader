@@ -14,6 +14,8 @@ from reader.database import Database
 from reader.settings import ReaderSettings
 from reader.style import apply_reader_style
 from ui.settings_panel import SettingsPanel
+from PySide6.QtGui import QShortcut, QKeySequence
+from ui.bookmarks_panel import BookmarksPanel
 
 class ReaderPage(QWidget):
     def __init__(self, book, parent=None):
@@ -47,6 +49,18 @@ class ReaderPage(QWidget):
 
         self.load_chapter(self.current_chapter)
 
+        self.bookmarks_panel = None
+        self.bookmark_shortcut = QShortcut(
+            QKeySequence("Ctrl+B"),
+            self,
+        )
+
+        self.bookmark_shortcut.activated.connect(
+            self.add_bookmark
+        )
+
+        
+
     def setup_ui(self):
         main_layout = QVBoxLayout(self)
 
@@ -75,11 +89,15 @@ class ReaderPage(QWidget):
 
         toolbar = QHBoxLayout()
 
-        back_button = QPushButton("← Library")
+        back_button = QPushButton("←")
         back_button.clicked.connect(self.go_back)
 
-        self.title_label = QLabel(self.current_book.title)
-        self.title_label.setAlignment(Qt.AlignCenter)
+        title_label = QLabel(self.current_book.title)
+
+        bookmarks_button = QPushButton("🔖")
+        bookmarks_button.clicked.connect(
+            self.show_bookmarks
+        )
 
         settings_button = QPushButton("⚙")
         settings_button.clicked.connect(
@@ -87,9 +105,9 @@ class ReaderPage(QWidget):
         )
 
         toolbar.addWidget(back_button)
+        toolbar.addWidget(title_label)
         toolbar.addStretch()
-        toolbar.addWidget(self.title_label)
-        toolbar.addStretch()
+        toolbar.addWidget(bookmarks_button)
         toolbar.addWidget(settings_button)
 
         main_layout.addLayout(toolbar)
@@ -242,3 +260,150 @@ class ReaderPage(QWidget):
         self.settings_panel.setVisible(
             not self.settings_panel.isVisible()
         )
+
+    def get_current_position(self, callback):
+        self.web_view.page().runJavaScript(
+            "window.scrollY",
+            callback,
+        )
+
+    def add_bookmark(self):
+        def save_bookmark(position):
+            if position is None:
+                position = 0
+
+            position = int(position)
+
+            self.web_view.page().runJavaScript(
+                """
+                (() => {
+                    const element = document.elementFromPoint(
+                        window.innerWidth / 2,
+                        100
+                    );
+
+                    return element
+                        ? element.innerText
+                        : "";
+                })();
+                """,
+                lambda label: self.finish_bookmark(
+                    position,
+                    label,
+                ),
+            )
+
+        self.get_current_position(save_bookmark)
+
+    def finish_bookmark(self, position, label):
+        if not label:
+            label = "Current location"
+
+        label = label.strip().replace(
+            "\n",
+            " ",
+        )
+
+        if len(label) > 80:
+            label = label[:80] + "..."
+
+        self.database.add_bookmark(
+            self.book_id,
+            self.current_chapter,
+            position,
+            label,
+        )
+
+        self.show_bookmarks()
+
+    def show_bookmarks(self):
+        bookmarks = self.database.get_bookmarks(
+            self.book_id
+        )
+
+        if self.bookmarks_panel is not None:
+            self.bookmarks_panel.close()
+
+        self.bookmarks_panel = BookmarksPanel(
+            bookmarks
+        )
+
+        self.bookmarks_panel.setWindowTitle(
+            "Bookmarks"
+        )
+
+        self.bookmarks_panel.setMinimumSize(
+            400,
+            500,
+        )
+
+        self.bookmarks_panel.bookmark_selected.connect(
+            self.go_to_bookmark
+        )
+
+        self.bookmarks_panel.bookmark_deleted.connect(
+            self.delete_bookmark
+        )
+
+        self.bookmarks_panel.show()
+
+    def go_to_bookmark(self, chapter, position):
+        self.current_chapter = chapter
+
+        self.update_navigation_buttons()
+        self.contents.setCurrentRow(chapter)
+
+        chapter_data = self.current_book.chapters[chapter]
+
+        styled_content = apply_reader_style(
+            chapter_data.content,
+            self.settings,
+        )
+
+        self.bookmark_position = position
+
+        try:
+            self.web_view.loadFinished.disconnect(
+                self.restore_bookmark_position
+            )
+        except RuntimeError:
+            pass
+
+        self.web_view.loadFinished.connect(
+            self.restore_bookmark_position
+        )
+
+        self.web_view.setHtml(styled_content)
+
+        self.database.save_progress(
+            self.book_id,
+            chapter,
+            position,
+        )
+
+        if self.bookmarks_panel is not None:
+            self.bookmarks_panel.close()
+
+
+    def restore_bookmark_position(self, success):
+        if not success:
+            return
+
+        position = self.bookmark_position
+
+        self.web_view.page().runJavaScript(
+            f"window.scrollTo(0, {position});"
+        )
+
+        try:
+            self.web_view.loadFinished.disconnect(
+                self.restore_bookmark_position
+            )
+        except RuntimeError:
+            pass
+
+    def delete_bookmark(self, bookmark_id):
+        self.database.delete_bookmark(
+            bookmark_id
+        )
+

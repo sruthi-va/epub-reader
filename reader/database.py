@@ -150,5 +150,52 @@ class Database:
             "position": result[1],
         }
 
+    def add_bookmark(self, book_id, chapter, position, label=""):
+        cursor = self.connection.cursor()
+
+        cursor.execute("""
+            INSERT INTO bookmarks
+            (book_id, chapter, position, label)
+            VALUES (?, ?, ?, ?)
+        """, (book_id, chapter, position, label))
+
+        self.connection.commit()
+
+        return cursor.lastrowid
+
+
+    def get_bookmarks(self, book_id):
+        cursor = self.connection.cursor()
+
+        cursor.execute("""
+            SELECT id, chapter, position, label
+            FROM bookmarks
+            WHERE book_id = ?
+            ORDER BY id
+        """, (book_id,))
+
+        results = cursor.fetchall()
+
+        return [
+            {
+                "id": row[0],
+                "chapter": row[1],
+                "position": row[2],
+                "label": row[3],
+            }
+            for row in results
+        ]
+
+
+    def delete_bookmark(self, bookmark_id):
+        cursor = self.connection.cursor()
+
+        cursor.execute("""
+            DELETE FROM bookmarks
+            WHERE id = ?
+        """, (bookmark_id,))
+
+        self.connection.commit()
+
     def close(self):
         self.connection.close()
