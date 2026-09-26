@@ -32,6 +32,7 @@ class EPUBParser:
                 metadata=metadata,
                 cover=cover,
                 chapters=chapters,
+                path=self.epub_path,
             )
 
     def _find_opf_path(self, epub):

@@ -14,10 +14,17 @@ class Chapter:
 
 
 class Book:
-    def __init__(self, metadata=None, cover=None, chapters=None):
+    def __init__(
+        self,
+        metadata=None,
+        cover=None,
+        chapters=None,
+        path=None,
+    ):
         self.metadata = metadata or Metadata()
         self.cover = cover
         self.chapters = chapters or []
+        self.path = path
 
     @property
     def title(self):

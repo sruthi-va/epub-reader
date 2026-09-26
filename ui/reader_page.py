@@ -10,20 +10,37 @@ from PySide6.QtWidgets import (
     QSplitter,
 )
 from PySide6.QtWebEngineWidgets import QWebEngineView
-
+from reader.database import Database
 
 class ReaderPage(QWidget):
     def __init__(self, book, parent=None):
         super().__init__(parent)
 
-        # Application state
         self.current_book = book
         self.current_chapter = 0
         self.current_position = 0
 
+        self.database = Database()
+
+        self.book_id = self.database.add_book(
+            title=self.current_book.title,
+            author=self.current_book.author,
+            path=self.current_book.path,
+            cover=self.current_book.cover,
+        )
+
         self.setup_ui()
         self.populate_contents()
-        self.load_chapter(0)
+
+        progress = self.database.get_progress(
+            self.book_id
+        )
+
+        if progress is not None:
+            self.current_chapter = progress["chapter"]
+            self.current_position = progress["position"]
+
+        self.load_chapter(self.current_chapter)
 
     def setup_ui(self):
         main_layout = QVBoxLayout(self)
@@ -124,11 +141,16 @@ class ReaderPage(QWidget):
 
         self.current_chapter = index
 
+        self.database.save_progress(
+            book_id=self.book_id,
+            chapter=self.current_chapter,
+            position=self.current_position,
+        )
+
         chapter = self.current_book.chapters[index]
 
         self.web_view.setHtml(chapter.content)
 
-        # Highlight current chapter in contents
         self.contents.setCurrentRow(index)
 
         self.update_navigation_buttons()
